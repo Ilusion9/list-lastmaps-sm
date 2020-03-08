@@ -12,7 +12,7 @@ public Plugin myinfo =
 
 enum struct MapInfo
 {
-	char mapName[PLATFORM_MAX_PATH];
+	char mapName[128];
 	int startTime;
 }
 

@@ -23,7 +23,7 @@ MapInfo g_CurrentMapInfo;
 public void OnPluginStart()
 {
 	g_List_LastMaps = new ArrayList(sizeof(MapInfo));
-	g_Cvar_MaxLastMaps = CreateConVar("sm_lastmaps_maxsize", "15", "How many maps will be shown in the last maps list?", FCVAR_NONE, true, 0.0);
+	g_Cvar_MaxLastMaps = CreateConVar("sm_lastmaps_maxsize", "15", "How many maps will be shown in the map history list?", FCVAR_NONE, true, 0.0);
 
 	RegConsoleCmd("sm_lastmaps", Command_LastMaps);
 }

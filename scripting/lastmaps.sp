@@ -12,18 +12,18 @@ public Plugin myinfo =
 
 enum struct MapInfo
 {
-	char mapName[65];
+	char mapName[PLATFORM_MAX_PATH];
 	int startTime;
 }
 
 ArrayList g_List_LastMaps;
-ConVar g_Cvar_MaxLength;
-MapInfo g_CurrentMap;
+ConVar g_Cvar_MaxLastMaps;
+MapInfo g_CurrentMapInfo;
 
 public void OnPluginStart()
 {
 	g_List_LastMaps = new ArrayList(sizeof(MapInfo));
-	g_Cvar_MaxLength = CreateConVar("sm_lastmaps_maxsize", "15", "How many maps will be shown in the map history list?", FCVAR_NONE, true, 0.0);
+	g_Cvar_MaxLastMaps = CreateConVar("sm_lastmaps_maxsize", "15", "How many maps will be shown in the last maps list?", FCVAR_NONE, true, 0.0);
 
 	RegConsoleCmd("sm_lastmaps", Command_LastMaps);
 }
@@ -32,8 +32,8 @@ public void OnMapStart()
 {
 	g_List_LastMaps.Clear();
 	
-	GetCurrentMap(g_CurrentMap.mapName, sizeof(MapInfo::mapName));
-	g_CurrentMap.startTime = GetTime();
+	GetCurrentMap(g_CurrentMapInfo.mapName, sizeof(MapInfo::mapName));
+	g_CurrentMapInfo.startTime = GetTime();
 	
 	MapInfo info;
 	KeyValues kv = new KeyValues("Last Maps");
@@ -62,13 +62,13 @@ public void OnMapEnd()
 	KeyValues kv = new KeyValues("Last Maps");
 	
 	kv.JumpToKey("0", true);
-	kv.SetString("name", g_CurrentMap.mapName);
-	kv.SetNum("started", g_CurrentMap.startTime);
+	kv.SetString("name", g_CurrentMapInfo.mapName);
+	kv.SetNum("started", g_CurrentMapInfo.startTime);
 	kv.GoBack();
 	
-	if (g_List_LastMaps.Length > g_Cvar_MaxLength.IntValue - 1)
+	if (g_List_LastMaps.Length > g_Cvar_MaxLastMaps.IntValue - 1)
 	{
-		g_List_LastMaps.Resize(g_Cvar_MaxLength.IntValue - 1);
+		g_List_LastMaps.Resize(g_Cvar_MaxLastMaps.IntValue - 1);
 	}
 	
 	for (int i = 0; i < g_List_LastMaps.Length; i++)
@@ -91,10 +91,10 @@ public Action Command_LastMaps(int client, int args)
 {
 	MapInfo info;
 	char startedTime[64], playedTime[64];	
-	int lastMapStartTime = g_CurrentMap.startTime;
+	int lastMapStartTime = g_CurrentMapInfo.startTime;
 	
 	PrintToConsole(client, "Last Maps:");
-	PrintToConsole(client, "  00. %s : current map", g_CurrentMap.mapName);
+	PrintToConsole(client, "  00. %s : current map", g_CurrentMapInfo.mapName);
 	
 	for (int i = 0; i < g_List_LastMaps.Length; i++)
 	{

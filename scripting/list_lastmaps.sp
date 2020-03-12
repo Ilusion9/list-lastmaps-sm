@@ -111,7 +111,7 @@ public Action Command_LastMaps(int client, int args)
 
 	for (int i = 0; i < g_List_LastMaps.Length; i++)
 	{
-		g_List_LastMaps.GetArray(0, info);
+		g_List_LastMaps.GetArray(i, info);
 		length = strlen(info.mapName);
 		mapLen = length > mapLen ? length : mapLen;
 

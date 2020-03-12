@@ -17,6 +17,15 @@ enum struct MapInfo
 	int mapDuration;
 }
 
+enum struct MapInfoDisplay
+{
+	char mapName[128];
+	int mapLen;
+	char startTime[64];
+	int startLen;
+	char mapDuration[64];
+}
+
 ArrayList g_List_LastMaps;
 ConVar g_Cvar_MaxLastMaps;
 
@@ -98,68 +107,66 @@ public Action Command_LastMaps(int client, int args)
 		PrintToChat(client, "See console for output.");
 	}
 	
-	MapInfo info;
-	char currentMap[128];
-	
-	GetCurrentMap(currentMap, sizeof(currentMap));
 	PrintToConsole(client, "Last Maps:");
 	PrintToConsole(client, " ");
 
-	// Get max length for every column
-	char buffer[64];
-	int length, startLen, mapLen = strlen(currentMap) + 14;
+	MapInfo info;
+	char currentMap[128];
+	MapInfoDisplay[] infoDisplay = new MapInfoDisplay[g_List_LastMaps.Length];
+	int maxFormatMapLen, maxFormatStartLen = 7, currentTime = GetTime();
 
+	GetCurrentMap(currentMap, sizeof(currentMap));
+	maxFormatMapLen = strlen(currentMap) + 14;
+	
 	for (int i = 0; i < g_List_LastMaps.Length; i++)
 	{
 		g_List_LastMaps.GetArray(i, info);
-		length = strlen(info.mapName);
-		mapLen = length > mapLen ? length : mapLen;
-
-		length = FormatTimeDuration(buffer, sizeof(buffer), info.startTime);
-		startLen = length > startLen ? length : startLen;
+		
+		infoDisplay[i].mapLen = Format(infoDisplay[i].mapName, sizeof(MapInfoDisplay::mapName), "%s", info.mapName);
+		FormatTimeDuration(infoDisplay[i].startTime, sizeof(MapInfoDisplay::startTime), currentTime - info.startTime);
+		
+		infoDisplay[i].startLen = Format(infoDisplay[i].startTime, sizeof(MapInfoDisplay::startTime), "%s ago", infoDisplay[i].startTime);
+		FormatTimeDuration(infoDisplay[i].mapDuration, sizeof(MapInfoDisplay::mapDuration), info.mapDuration);
+		
+		maxFormatMapLen = infoDisplay[i].mapLen > maxFormatMapLen ? infoDisplay[i].mapLen : maxFormatMapLen;
+		maxFormatStartLen = infoDisplay[i].startLen > maxFormatStartLen ? infoDisplay[i].startLen : maxFormatStartLen;
 	}
 	
-	// table columns
-	char mapTitle[64] = "Map";
-	char startTitle[64] = "Started";
-	FillString(mapTitle, mapLen);
-	FillString(startTitle, startLen);
-	PrintToConsole(client, "#   %s   %s   Duration", mapTitle, startTitle);
-
-	// show current map
-	PrintToConsole(client, "00. %s (current map)", currentMap);
+	char mapTitle[sizeof(MapInfoDisplay::mapName)] = "Map";
+	char startTitle[sizeof(MapInfoDisplay::startTime)] = "Started";
+	char durationTitle[sizeof(MapInfoDisplay::mapDuration)] = "Duration";
 	
-	char formatStart[128], formatDuration[128];	
+	FillString(mapTitle, sizeof(mapTitle), 3, maxFormatMapLen);
+	FillString(startTitle, sizeof(startTitle), 7, maxFormatStartLen);
+	
+	PrintToConsole(client, "#   %s   %s   %s", mapTitle, startTitle, durationTitle);
+	PrintToConsole(client, "00. %s (current map)", currentMap);
+
 	for (int i = 0; i < g_List_LastMaps.Length; i++)
 	{
-		g_List_LastMaps.GetArray(i, info);
-		FillString(info.mapName, mapLen);
+		FillString(infoDisplay[i].mapName, sizeof(MapInfoDisplay::mapName), infoDisplay[i].mapLen, maxFormatMapLen);
+		FillString(infoDisplay[i].startTime, sizeof(MapInfoDisplay::startTime), infoDisplay[i].startLen, maxFormatStartLen);
 		
-		FormatTimeDuration(formatStart, sizeof(formatStart), GetTime() - info.startTime);
-		Format(formatStart, sizeof(formatStart), "%s ago", formatStart);
-		FillString(formatStart, startLen);
-
-		FormatTimeDuration(formatDuration, sizeof(formatDuration), info.mapDuration);
-		PrintToConsole(client, "%02d. %s   %s   %s", i + 1, info.mapName, formatStart, formatDuration);
+		PrintToConsole(client, "%02d. %s   %s   %s", i + 1, infoDisplay[i].mapName, infoDisplay[i].startTime, infoDisplay[i].mapDuration);
 	}
 	
 	return Plugin_Handled;
 }
 
 // Fill string with "space" characters
-void FillString(char[] buffer, int maxlen)
+void FillString(char[] buffer, int maxsize, int start, int end)
 {
-	int index, length = strlen(buffer);
-	if (length >= maxlen)
+	int index;
+	if (start >= end || start >= maxsize)
 	{
 		return;
 	}
 	
-	for (index = length; index < maxlen; index++)
+	for (index = start; index < end && index < maxsize; index++)
 	{
 		buffer[index] = ' ';
 	}
-	buffer[index] = '\0';
+	buffer[end] = '\0';
 }
 
 // Transform unix time into "d h m" format type

@@ -3,7 +3,7 @@
 
 public Plugin myinfo =
 {
-	name = "Last Maps",
+	name = "List Last Maps",
 	author = "Ilusion9",
 	description = "Informations about the last maps played.",
 	version = "1.0",
@@ -14,16 +14,16 @@ enum struct MapInfo
 {
 	char mapName[128];
 	int startTime;
+	int mapDuration;
 }
 
 ArrayList g_List_LastMaps;
 ConVar g_Cvar_MaxLastMaps;
-MapInfo g_CurrentMapInfo;
 
 public void OnPluginStart()
 {
 	g_List_LastMaps = new ArrayList(sizeof(MapInfo));
-	g_Cvar_MaxLastMaps = CreateConVar("sm_lastmaps_maxsize", "15", "How many maps will be shown in the map history list?", FCVAR_NONE, true, 0.0);
+	g_Cvar_MaxLastMaps = CreateConVar("sm_lastaps_maxsize", "15", "How many maps will be shown in the map history?", FCVAR_NONE, true, 0.0);
 
 	RegConsoleCmd("sm_lastmaps", Command_LastMaps);
 }
@@ -32,13 +32,10 @@ public void OnMapStart()
 {
 	g_List_LastMaps.Clear();
 	
-	GetCurrentMap(g_CurrentMapInfo.mapName, sizeof(MapInfo::mapName));
-	g_CurrentMapInfo.startTime = GetTime();
-	
 	MapInfo info;
 	KeyValues kv = new KeyValues("Last Maps");
 	
-	if (kv.ImportFromFile("lastmaps.ini"))
+	if (kv.ImportFromFile("list_lastmaps.ini"))
 	{
 		if (kv.GotoFirstSubKey(false))
 		{
@@ -46,6 +43,7 @@ public void OnMapStart()
 			{
 				kv.GetString("name", info.mapName, sizeof(MapInfo::mapName), "");
 				info.startTime = kv.GetNum("started", 0);
+				info.mapDuration = kv.GetNum("duration", 0);
 				g_List_LastMaps.PushArray(info);
 				
 			} while (kv.GotoNextKey(false));
@@ -53,63 +51,118 @@ public void OnMapStart()
 	}
 	
 	delete kv;
+	if (g_List_LastMaps.Length > g_Cvar_MaxLastMaps.IntValue)
+	{
+		g_List_LastMaps.Resize(g_List_LastMaps.Length);
+	}
 }
 
 public void OnMapEnd()
 {
 	MapInfo info;
-	char buffer[256];
+	char key[128];
+	
+	GetCurrentMap(info.mapName, sizeof(MapInfo::mapName));
+	info.mapDuration = RoundToZero(GetGameTime());
+	info.startTime = GetTime() - info.mapDuration;
+	
 	KeyValues kv = new KeyValues("Last Maps");
-	
 	kv.JumpToKey("0", true);
-	kv.SetString("name", g_CurrentMapInfo.mapName);
-	kv.SetNum("started", g_CurrentMapInfo.startTime);
-	kv.GoBack();
 	
-	if (g_List_LastMaps.Length > g_Cvar_MaxLastMaps.IntValue - 1)
-	{
-		g_List_LastMaps.Resize(g_Cvar_MaxLastMaps.IntValue - 1);
-	}
+	kv.SetString("name", info.mapName);
+	kv.SetNum("started", info.startTime);
+	kv.SetNum("duration", info.mapDuration);
+	kv.GoBack();
 	
 	for (int i = 0; i < g_List_LastMaps.Length; i++)
 	{
-		Format(buffer, sizeof(buffer), "%d", i + 1);
-		kv.JumpToKey(buffer, true);
-		
 		g_List_LastMaps.GetArray(i, info);
+		Format(key, sizeof(key), "%d", i + 1);
+		kv.JumpToKey(key, true);
+		
 		kv.SetString("name", info.mapName);
 		kv.SetNum("started", info.startTime);
+		kv.SetNum("duration", info.mapDuration);
 		kv.GoBack();
 	}
 	
 	kv.Rewind();
-	kv.ExportToFile("lastmaps.ini");
+	kv.ExportToFile("list_lastmaps.ini");
 	delete kv;
 }
 
 public Action Command_LastMaps(int client, int args)
 {
+	if (GetCmdReplySource() == SM_REPLY_TO_CHAT)
+	{
+		PrintToChat(client, "See console for output.");
+	}
+	
 	MapInfo info;
-	char startedTime[64], playedTime[64];	
-	int lastMapStartTime = g_CurrentMapInfo.startTime;
+	char currentMap[128];
 	
+	GetCurrentMap(currentMap, sizeof(currentMap));
 	PrintToConsole(client, "Last Maps:");
-	PrintToConsole(client, "  00. %s : current map", g_CurrentMapInfo.mapName);
+	PrintToConsole(client, " ");
+
+	// Get max length for every column
+	char buffer[64];
+	int length, startLen, mapLen = strlen(currentMap) + 14;
+
+	for (int i = 0; i < g_List_LastMaps.Length; i++)
+	{
+		g_List_LastMaps.GetArray(0, info);
+		length = strlen(info.mapName);
+		mapLen = length > mapLen ? length : mapLen;
+
+		length = FormatTimeDuration(buffer, sizeof(buffer), info.startTime);
+		startLen = length > startLen ? length : startLen;
+	}
 	
+	// table columns
+	char mapTitle[64] = "Map";
+	char startTitle[64] = "Started";
+	FillString(mapTitle, mapLen);
+	FillString(startTitle, startLen);
+	PrintToConsole(client, "#   %s   %s   Duration", mapTitle, startTitle);
+
+	// show current map
+	PrintToConsole(client, "00. %s (current map)", currentMap);
+	
+	char formatStart[128], formatDuration[128];	
 	for (int i = 0; i < g_List_LastMaps.Length; i++)
 	{
 		g_List_LastMaps.GetArray(i, info);
+		FillString(info.mapName, mapLen);
 		
-		FormatTimeDuration(startedTime, sizeof(startedTime), GetTime() - info.startTime);
-		FormatTimeDuration(playedTime, sizeof(playedTime), lastMapStartTime - info.startTime);
+		FormatTimeDuration(formatStart, sizeof(formatStart), GetTime() - info.startTime);
+		Format(formatStart, sizeof(formatStart), "%s ago", formatStart);
+		FillString(formatStart, startLen);
 
-		PrintToConsole(client, "  %02d. %s : started %s ago : played %s", i + 1, info.mapName, startedTime, playedTime);
-		lastMapStartTime = info.startTime;
+		FormatTimeDuration(formatDuration, sizeof(formatDuration), info.mapDuration);
+		PrintToConsole(client, "%02d. %s   %s   %s", i + 1, info.mapName, formatStart, formatDuration);
 	}
 	
 	return Plugin_Handled;
 }
 
+// Fill string with "space" characters
+void FillString(char[] buffer, int maxlen)
+{
+	int index, length = strlen(buffer);
+	if (length >= maxlen)
+	{
+		return;
+	}
+	
+	for (index = length; index < maxlen; index++)
+	{
+		buffer[index] = ' ';
+	}
+	buffer[index] = '\0';
+}
+
+// Transform unix time into "d h m" format type
 int FormatTimeDuration(char[] buffer, int maxlen, int time)
 {
 	int days = time / 86400;

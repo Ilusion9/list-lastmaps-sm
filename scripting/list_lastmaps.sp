@@ -31,6 +31,8 @@ ConVar g_Cvar_MaxLastMaps;
 
 public void OnPluginStart()
 {
+	LoadTranslations("common.phrases");
+
 	g_List_LastMaps = new ArrayList(sizeof(MapInfo));
 	g_Cvar_MaxLastMaps = CreateConVar("sm_lastaps_maxsize", "15", "How many maps will be shown in the map history?", FCVAR_NONE, true, 0.0);
 
@@ -104,7 +106,7 @@ public Action Command_LastMaps(int client, int args)
 {
 	if (GetCmdReplySource() == SM_REPLY_TO_CHAT)
 	{
-		PrintToChat(client, "See console for output.");
+		PrintToChat(client, "%t", "See console for output");
 	}
 	
 	PrintToConsole(client, "Last Maps:");

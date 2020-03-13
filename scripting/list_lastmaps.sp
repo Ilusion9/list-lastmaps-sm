@@ -68,6 +68,37 @@ public void OnMapStart()
 	}
 }
 
+public void OnAutoConfigsBuffered()
+{	
+	MapInfo info;
+	char buffer[128];
+	
+	GetCurrentMap(buffer, sizeof(buffer));	
+	KeyValues kv = new KeyValues("Last Maps");
+	kv.JumpToKey("0", true);
+	
+	kv.SetString("name", buffer);
+	kv.SetNum("started", GetTime());
+	kv.SetNum("duration", 0);
+	kv.GoBack();
+	
+	for (int i = 0; i < g_List_LastMaps.Length; i++)
+	{
+		g_List_LastMaps.GetArray(i, info);
+		Format(buffer, sizeof(buffer), "%d", i + 1);
+		kv.JumpToKey(buffer, true);
+		
+		kv.SetString("name", info.mapName);
+		kv.SetNum("started", info.startTime);
+		kv.SetNum("duration", info.mapDuration);
+		kv.GoBack();
+	}
+	
+	kv.Rewind();
+	kv.ExportToFile("list_lastmaps.ini");
+	delete kv;
+}
+
 public void OnMapEnd()
 {
 	MapInfo info;
@@ -113,37 +144,53 @@ public Action Command_LastMaps(int client, int args)
 	PrintToConsole(client, " ");
 
 	MapInfo info;
-	char currentMap[128];
 	MapInfoDisplay[] infoDisplay = new MapInfoDisplay[g_List_LastMaps.Length];
-	int maxFormatMapLen, maxFormatStartLen = 7, currentTime = GetTime();
 
+	char mapTitle[sizeof(MapInfoDisplay::mapName)] = "Map";
+	char startTitle[sizeof(MapInfoDisplay::startTime)] = "Started";
+	char durationTitle[sizeof(MapInfoDisplay::mapDuration)] = "Duration";
+	
+	// Get current map
+	char currentMap[128];
 	GetCurrentMap(currentMap, sizeof(currentMap));
-	maxFormatMapLen = strlen(currentMap) + 14;
+	
+	// Get max lengths of every header column
+	int maxFormatMapLen = strlen(currentMap) + 14;
+	int maxFormatStartLen = 7;
+	int currentTime = GetTime();
 	
 	for (int i = 0; i < g_List_LastMaps.Length; i++)
 	{
 		g_List_LastMaps.GetArray(i, info);
 		
+		// Build content columns
 		infoDisplay[i].mapLen = Format(infoDisplay[i].mapName, sizeof(MapInfoDisplay::mapName), "%s", info.mapName);
 		FormatTimeDuration(infoDisplay[i].startTime, sizeof(MapInfoDisplay::startTime), currentTime - info.startTime);
 		
 		infoDisplay[i].startLen = Format(infoDisplay[i].startTime, sizeof(MapInfoDisplay::startTime), "%s ago", infoDisplay[i].startTime);
-		FormatTimeDuration(infoDisplay[i].mapDuration, sizeof(MapInfoDisplay::mapDuration), info.mapDuration);
+		if (info.mapDuration)
+		{
+			FormatTimeDuration(infoDisplay[i].mapDuration, sizeof(MapInfoDisplay::mapDuration), info.mapDuration);
+		}
+		else
+		{
+			Format(infoDisplay[i].mapDuration, sizeof(MapInfoDisplay::mapDuration), "Not available");
+		}
 		
+		// Get max lengths of every content column
 		maxFormatMapLen = infoDisplay[i].mapLen > maxFormatMapLen ? infoDisplay[i].mapLen : maxFormatMapLen;
 		maxFormatStartLen = infoDisplay[i].startLen > maxFormatStartLen ? infoDisplay[i].startLen : maxFormatStartLen;
 	}
 	
-	char mapTitle[sizeof(MapInfoDisplay::mapName)] = "Map";
-	char startTitle[sizeof(MapInfoDisplay::startTime)] = "Started";
-	char durationTitle[sizeof(MapInfoDisplay::mapDuration)] = "Duration";
-	
+	// Print header columns
 	FillString(mapTitle, sizeof(mapTitle), 3, maxFormatMapLen);
 	FillString(startTitle, sizeof(startTitle), 7, maxFormatStartLen);
-	
 	PrintToConsole(client, "#   %s   %s   %s", mapTitle, startTitle, durationTitle);
+	
+	// Print current map
 	PrintToConsole(client, "00. %s (current map)", currentMap);
 
+	// Print content columns
 	for (int i = 0; i < g_List_LastMaps.Length; i++)
 	{
 		FillString(infoDisplay[i].mapName, sizeof(MapInfoDisplay::mapName), infoDisplay[i].mapLen, maxFormatMapLen);

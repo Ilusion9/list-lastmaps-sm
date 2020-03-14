@@ -64,73 +64,26 @@ public void OnMapStart()
 	delete kv;
 	if (g_List_LastMaps.Length > g_Cvar_MaxLastMaps.IntValue)
 	{
-		g_List_LastMaps.Resize(g_List_LastMaps.Length);
+		g_List_LastMaps.Resize(g_Cvar_MaxLastMaps.IntValue);
 	}
 }
 
 public void OnAutoConfigsBuffered()
 {	
-	MapInfo info;
-	char buffer[128];
-	
-	GetCurrentMap(buffer, sizeof(buffer));	
-	KeyValues kv = new KeyValues("Last Maps");
-	kv.JumpToKey("0", true);
-	
-	kv.SetString("name", buffer);
-	kv.SetNum("started", GetTime());
-	kv.SetNum("duration", 0);
-	kv.GoBack();
-	
-	for (int i = 0; i < g_List_LastMaps.Length; i++)
-	{
-		g_List_LastMaps.GetArray(i, info);
-		Format(buffer, sizeof(buffer), "%d", i + 1);
-		kv.JumpToKey(buffer, true);
-		
-		kv.SetString("name", info.mapName);
-		kv.SetNum("started", info.startTime);
-		kv.SetNum("duration", info.mapDuration);
-		kv.GoBack();
-	}
-	
-	kv.Rewind();
-	kv.ExportToFile("list_lastmaps.ini");
-	delete kv;
+	MapInfo info;	
+	GetCurrentMap(info.mapName, sizeof(MapInfo::mapName));
+	info.mapDuration = 0;
+	info.startTime = GetTime();
+	InsertMapsIntoFile(info);
 }
 
 public void OnMapEnd()
 {
-	MapInfo info;
-	char key[128];
-	
+	MapInfo info;	
 	GetCurrentMap(info.mapName, sizeof(MapInfo::mapName));
 	info.mapDuration = RoundToZero(GetGameTime());
 	info.startTime = GetTime() - info.mapDuration;
-	
-	KeyValues kv = new KeyValues("Last Maps");
-	kv.JumpToKey("0", true);
-	
-	kv.SetString("name", info.mapName);
-	kv.SetNum("started", info.startTime);
-	kv.SetNum("duration", info.mapDuration);
-	kv.GoBack();
-	
-	for (int i = 0; i < g_List_LastMaps.Length; i++)
-	{
-		g_List_LastMaps.GetArray(i, info);
-		Format(key, sizeof(key), "%d", i + 1);
-		kv.JumpToKey(key, true);
-		
-		kv.SetString("name", info.mapName);
-		kv.SetNum("started", info.startTime);
-		kv.SetNum("duration", info.mapDuration);
-		kv.GoBack();
-	}
-	
-	kv.Rewind();
-	kv.ExportToFile("list_lastmaps.ini");
-	delete kv;
+	InsertMapsIntoFile(info);
 }
 
 public Action Command_LastMaps(int client, int args)
@@ -200,6 +153,35 @@ public Action Command_LastMaps(int client, int args)
 	}
 	
 	return Plugin_Handled;
+}
+
+void InsertMapsIntoFile(MapInfo currentMap)
+{
+	MapInfo info;
+	char buffer[128];
+	KeyValues kv = new KeyValues("Last Maps");
+	
+	kv.JumpToKey("0", true);
+	kv.SetString("name", currentMap.mapName);
+	kv.SetNum("started", currentMap.startTime);
+	kv.SetNum("duration", currentMap.mapDuration);
+	kv.GoBack();
+	
+	for (int i = 0; i < g_List_LastMaps.Length; i++)
+	{
+		g_List_LastMaps.GetArray(i, info);
+		Format(buffer, sizeof(buffer), "%d", i + 1);
+		kv.JumpToKey(buffer, true);
+		
+		kv.SetString("name", info.mapName);
+		kv.SetNum("started", info.startTime);
+		kv.SetNum("duration", info.mapDuration);
+		kv.GoBack();
+	}
+	
+	kv.Rewind();
+	kv.ExportToFile("list_lastmaps.ini");
+	delete kv;
 }
 
 // Fill string with "space" characters

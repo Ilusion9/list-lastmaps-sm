@@ -29,6 +29,13 @@ enum struct MapInfoDisplay
 ArrayList g_List_LastMaps;
 ConVar g_Cvar_MaxLastMaps;
 
+bool g_IsPluginLoadedLate;
+
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
+{
+	g_IsPluginLoadedLate = late;
+}
+
 public void OnPluginStart()
 {
 	LoadTranslations("common.phrases");
@@ -50,14 +57,29 @@ public void OnMapStart()
 	{
 		if (kv.GotoFirstSubKey(false))
 		{
-			do
+			kv.GetString("name", info.mapName, sizeof(MapInfo::mapName), "");
+			info.startTime = kv.GetNum("started", 0);
+			info.mapDuration = kv.GetNum("duration", 0);
+			
+			if (g_IsPluginLoadedLate)
+			{
+				if (info.startTime < GetTime() - GetGameTime())
+				{
+					g_List_LastMaps.PushArray(info);
+				}
+			}
+			else
+			{
+				g_List_LastMaps.PushArray(info);
+			}
+			
+			while (kv.GotoNextKey(false))
 			{
 				kv.GetString("name", info.mapName, sizeof(MapInfo::mapName), "");
 				info.startTime = kv.GetNum("started", 0);
 				info.mapDuration = kv.GetNum("duration", 0);
 				g_List_LastMaps.PushArray(info);
-				
-			} while (kv.GotoNextKey(false));
+			}
 		}
 	}
 	
@@ -94,7 +116,6 @@ public Action Command_LastMaps(int client, int args)
 	}
 	
 	PrintToConsole(client, "Last Maps:");
-	PrintToConsole(client, " ");
 
 	MapInfo info;
 	MapInfoDisplay[] infoDisplay = new MapInfoDisplay[g_List_LastMaps.Length];
@@ -106,9 +127,10 @@ public Action Command_LastMaps(int client, int args)
 	// Get current map
 	char currentMap[128];
 	GetCurrentMap(currentMap, sizeof(currentMap));
+	PrintToConsole(client, "Current map: %s \n", currentMap);
 	
 	// Get max lengths of every header column
-	int maxFormatMapLen = strlen(currentMap) + 14;
+	int maxFormatMapLen = 3;
 	int maxFormatStartLen = 7;
 	int currentTime = GetTime();
 	
@@ -127,7 +149,7 @@ public Action Command_LastMaps(int client, int args)
 		}
 		else
 		{
-			Format(infoDisplay[i].mapDuration, sizeof(MapInfoDisplay::mapDuration), "Not available");
+			Format(infoDisplay[i].mapDuration, sizeof(MapInfoDisplay::mapDuration), "N/A");
 		}
 		
 		// Get max lengths of every content column
@@ -138,10 +160,7 @@ public Action Command_LastMaps(int client, int args)
 	// Print header columns
 	FillString(mapTitle, sizeof(mapTitle), 3, maxFormatMapLen);
 	FillString(startTitle, sizeof(startTitle), 7, maxFormatStartLen);
-	PrintToConsole(client, "#   %s   %s   %s", mapTitle, startTitle, durationTitle);
-	
-	// Print current map
-	PrintToConsole(client, "00. %s (current map)", currentMap);
+	PrintToConsole(client, "    %s   %s   %s", mapTitle, startTitle, durationTitle);
 
 	// Print content columns
 	for (int i = 0; i < g_List_LastMaps.Length; i++)

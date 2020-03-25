@@ -106,6 +106,8 @@ public void OnMapEnd()
 	info.mapDuration = RoundToZero(GetGameTime());
 	info.startTime = GetTime() - info.mapDuration;
 	InsertMapsIntoFile(info);
+	
+	g_List_LastMaps.Clear();
 }
 
 public Action Command_LastMaps(int client, int args)
@@ -160,7 +162,7 @@ public Action Command_LastMaps(int client, int args)
 	// Print header columns
 	FillString(mapTitle, sizeof(mapTitle), 3, maxFormatMapLen);
 	FillString(startTitle, sizeof(startTitle), 7, maxFormatStartLen);
-	PrintToConsole(client, "    %s   %s   %s", mapTitle, startTitle, durationTitle);
+	PrintToConsole(client, "#   %s   %s   %s", mapTitle, startTitle, durationTitle);
 
 	// Print content columns
 	for (int i = 0; i < g_List_LastMaps.Length; i++)
